@@ -50,16 +50,19 @@ jobs:
           echo "Target cluster name: ${{ vars.EKS_CLUSTER_NAME }}"
           echo "Target cluster node #: ${{ vars.EKS_DESIRED_SIZE }}"
 
-      - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
-          aws-region: ${{ vars.AWS_REGION }}
+      #- name: Configure AWS Credentials
+      #  uses: aws-actions/configure-aws-credentials@v4
+      #  with:
+      #    role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+      #    aws-region: ${{ vars.AWS_REGION }}
 
       - name: Manage EKS Cluster
         run: |
           aws sts get-caller-identity
-          ACTION="${{ github.event_name == 'schedule' && 'stop' || github.event.inputs.action }}"
-          TEAM_NOTIFY="${{ github.event_name == 'schedule' && 'true' || github.event.inputs.team_notification }}"
-          DESIRED_SIZE="${{ github.event_name == 'schedule' && vars.EKS_DESIRED_SIZE || github.event.inputs.desired_size }}"
-          python eks_scaler/python/main.py ${{ vars.EKS_CLUSTER_NAME }} $ACTION --team-notify $TEAM_NOTIFY --desired-size $DESIRED_SIZE
+          echo "Test de fichier temoins" > fichier.txt
+          date >> fichier.txt
+          echo "Fin de fichier temoins" >> fichier.txt
+          # ACTION="${{ github.event_name == 'schedule' && 'stop' || github.event.inputs.action }}"
+          # TEAM_NOTIFY="${{ github.event_name == 'schedule' && 'true' || github.event.inputs.team_notification }}"
+          # DESIRED_SIZE="${{ github.event_name == 'schedule' && vars.EKS_DESIRED_SIZE || github.event.inputs.desired_size }}"
+          # python eks_scaler/python/main.py ${{ vars.EKS_CLUSTER_NAME }} $ACTION --team-notify $TEAM_NOTIFY --desired-size $DESIRED_SIZE
