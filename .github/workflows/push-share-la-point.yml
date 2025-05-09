@@ -33,7 +33,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install -r requirements.txt
+          pip install Office365-REST-Python-Client
 
 #      - name: Display variables
 #        run: |
@@ -57,11 +57,35 @@ jobs:
 #          # DESIRED_SIZE="${{ github.event_name == 'schedule' && vars.EKS_DESIRED_SIZE || github.event.inputs.desired_size }}"
 #          # python eks_scaler/python/main.py ${{ vars.EKS_CLUSTER_NAME }} $ACTION --team-notify $TEAM_NOTIFY --desired-size $DESIRED_SIZE
 
+      - name: Create test file
+        run: |
+          echo "Test de fichier temoins" > fichier.txt
+          date >> fichier.txt
+          echo "Fin de fichier temoins" >> fichier.txt
+
       - name: Upload to SharePoint
-        uses: microsoft/sharepoint-actions@v1
-        with:
-          site-url: ${{ secrets.SHAREPOINT_SITE_URL }}
-          username: ${{ secrets.SHAREPOINT_USERNAME }}
-          password: ${{ secrets.SHAREPOINT_PASSWORD }}
-          local-path: 'fichier.txt'
-          sharepoint-path: '/Shared Documents/fichier.txt'
+        env:
+          SHAREPOINT_SITE_URL: ${{ secrets.SHAREPOINT_SITE_URL }}
+          SHAREPOINT_USERNAME: ${{ secrets.SHAREPOINT_USERNAME }}
+          SHAREPOINT_PASSWORD: ${{ secrets.SHAREPOINT_PASSWORD }}
+        run: |
+          python -c '
+          from office365.runtime.auth.user_credential import UserCredential
+          from office365.sharepoint.client_context import ClientContext
+          from office365.sharepoint.files.file import File
+          
+          # Connexion à SharePoint
+          user_credentials = UserCredential(SHAREPOINT_USERNAME, SHAREPOINT_PASSWORD)
+          ctx = ClientContext(SHAREPOINT_SITE_URL).with_credentials(user_credentials)
+          
+          # Chemin du dossier de destination
+          target_folder = "Shared Documents"
+          
+          # Lecture du fichier local
+          with open("fichier.txt", "rb") as content_file:
+              file_content = content_file.read()
+          
+          # Upload du fichier
+          target_file = ctx.web.get_folder_by_server_relative_url(target_folder).upload_file("fichier.txt", file_content).execute_query()
+          print(f"File has been uploaded to {target_file.serverRelativeUrl}")
+          '
