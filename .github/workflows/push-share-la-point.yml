@@ -33,7 +33,8 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install Office365-REST-Python-Client
+          python -m pip install --upgrade pip
+          pip install Office365-REST-Python-Client requests
 
 #      - name: Display variables
 #        run: |
@@ -70,22 +71,31 @@ jobs:
           SHAREPOINT_PASSWORD: ${{ secrets.SHAREPOINT_PASSWORD }}
         run: |
           python -c '
+          import os
           from office365.runtime.auth.user_credential import UserCredential
           from office365.sharepoint.client_context import ClientContext
-          from office365.sharepoint.files.file import File
           
-          # Connexion à SharePoint
-          user_credentials = UserCredential(SHAREPOINT_USERNAME, SHAREPOINT_PASSWORD)
-          ctx = ClientContext(SHAREPOINT_SITE_URL).with_credentials(user_credentials)
+          # Récupération des variables d'environnement
+          site_url = os.environ["SHAREPOINT_SITE_URL"]
+          username = os.environ["SHAREPOINT_USERNAME"]
+          password = os.environ["SHAREPOINT_PASSWORD"]
           
-          # Chemin du dossier de destination
-          target_folder = "Shared Documents"
-          
-          # Lecture du fichier local
-          with open("fichier.txt", "rb") as content_file:
-              file_content = content_file.read()
-          
-          # Upload du fichier
-          target_file = ctx.web.get_folder_by_server_relative_url(target_folder).upload_file("fichier.txt", file_content).execute_query()
-          print(f"File has been uploaded to {target_file.serverRelativeUrl}")
+          try:
+              # Connexion à SharePoint
+              user_credentials = UserCredential(username, password)
+              ctx = ClientContext(site_url).with_credentials(user_credentials)
+              
+              # Chemin du dossier de destination
+              target_folder = "Shared Documents"
+              
+              # Lecture du fichier local
+              with open("fichier.txt", "rb") as content_file:
+                  file_content = content_file.read()
+              
+              # Upload du fichier
+              target_file = ctx.web.get_folder_by_server_relative_url(target_folder).upload_file("fichier.txt", file_content).execute_query()
+              print(f"File has been uploaded to {target_file.serverRelativeUrl}")
+          except Exception as e:
+              print(f"Error occurred: {str(e)}")
+              exit(1)
           '
