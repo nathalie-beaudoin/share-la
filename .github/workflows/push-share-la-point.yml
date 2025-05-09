@@ -37,6 +37,13 @@ jobs:
           python -m pip install --upgrade pip
           pip install Office365-REST-Python-Client requests
 
+      - name: Login to Microsoft Graph with OIDC
+        uses: azure/login@v1
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          allow-no-subscriptions: true
+        
 #      - name: Display variables
 #        run: |
 #          echo "Target cluster name: ${{ vars.EKS_CLUSTER_NAME }}"
@@ -62,36 +69,48 @@ jobs:
       - name: Create upload script
         run: |
           cat > upload.py << 'EOL'
-          import os
-          from office365.runtime.auth.client_credential import ClientCredential
-          from office365.sharepoint.client_context import ClientContext
-          
-          # Récupération des variables d'environnement
-          site_url = os.environ["SHAREPOINT_SITE_URL"]
-          client_id = os.environ["AZURE_CLIENT_ID"]
-          
-          try:
-              # Création du contexte SharePoint avec le token OIDC
-              ctx = ClientContext(site_url).with_credentials(ClientCredential(client_id, None))
-              
-              # Chemin du dossier de destination
-              target_folder = "Shared Documents"
-              
-              # Lecture du fichier local
-              with open("test.txt", "rb") as content_file:
-                  file_content = content_file.read()
-              
-              # Upload du fichier
-              target_file = ctx.web.get_folder_by_server_relative_url(target_folder).upload_file("test.txt", file_content).execute_query()
-              print(f"File has been uploaded to {target_file.serverRelativeUrl}")
-          except Exception as e:
-              print(f"Error occurred: {str(e)}")
-              exit(1)
+            import os
+            from office365.sharepoint.client_context import ClientContext
+            from office365.runtime.auth.authentication_context import AuthenticationContext
+            from msal import ConfidentialClientApplication
+
+            # Variables d’environnement
+            client_id = os.environ["AZURE_CLIENT_ID"]
+            tenant_id = os.environ["AZURE_TENANT_ID"]
+            site_url = os.environ["SHAREPOINT_SITE_URL"]
+
+            # Auth via MSAL (OIDC)
+            authority = f"https://login.microsoftonline.com/{tenant_id}"
+            scope = ["https://graph.microsoft.com/.default"]
+
+            app = ConfidentialClientApplication(
+                client_id=client_id,
+                authority=authority
+            )
+
+            result = app.acquire_token_for_client(scopes=scope)
+            if "access_token" not in result:
+                print("Erreur d'obtention du token")
+                exit(1)
+
+            access_token = result["access_token"]
+
+            # Upload vers SharePoint
+            ctx = ClientContext(site_url)
+            ctx.authenticate_with_access_token(access_token)
+
+            target_folder = "Shared Documents"
+            with open("test.txt", "rb") as content_file:
+                file_content = content_file.read()
+
+            target_file = ctx.web.get_folder_by_server_relative_url(target_folder).upload_file("test.txt", file_content).execute_query()
+            print(f"✅ Fichier uploadé vers: {target_file.serverRelativeUrl}")
           EOL
 
       - name: Upload to SharePoint
         env:
           SHAREPOINT_SITE_URL: ${{ secrets.SHAREPOINT_SITE_URL }}
           AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
         run: python upload.py
 
