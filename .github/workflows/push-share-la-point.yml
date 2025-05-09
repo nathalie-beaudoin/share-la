@@ -59,41 +59,40 @@ jobs:
 #          # DESIRED_SIZE="${{ github.event_name == 'schedule' && vars.EKS_DESIRED_SIZE || github.event.inputs.desired_size }}"
 #          # python eks_scaler/python/main.py ${{ vars.EKS_CLUSTER_NAME }} $ACTION --team-notify $TEAM_NOTIFY --desired-size $DESIRED_SIZE
 
-      - name: Create test file
-        run: |
-          echo "Test de fichier temoins" > fichier.txt
-          date >> fichier.txt
-          echo "Fin de fichier temoins" >> fichier.txt
-
-      - name: Azure Login
-        uses: azure/login@v1
-        with:
-          client-id: ${{ secrets.AZURE_CLIENT_ID }}
-          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-
       - name: Create upload script
         run: |
           cat > upload.py << 'EOL'
           import os
           from office365.runtime.auth.client_credential import ClientCredential
           from office365.sharepoint.client_context import ClientContext
+          import requests
           
           # Récupération des variables d'environnement
           site_url = os.environ["SHAREPOINT_SITE_URL"]
+          client_id = os.environ["AZURE_CLIENT_ID"]
+          tenant_id = os.environ["AZURE_TENANT_ID"]
           
           try:
-              # Utilisation du token OIDC fourni par Azure Login
-              ctx = ClientContext(site_url).with_credentials(None)
+              # Obtention du token OIDC
+              token_url = f"https://login.microsoftonline.com/{tenant_id}/oauth2/v2.0/token"
+              token_data = {
+                  "client_id": client_id,
+                  "scope": f"{site_url}/.default",
+                  "grant_type": "client_credentials"
+              }
+              
+              # Utilisation du token OIDC pour l'authentification SharePoint
+              ctx = ClientContext(site_url).with_credentials(ClientCredential(client_id, None))
               
               # Chemin du dossier de destination
               target_folder = "Shared Documents"
               
               # Lecture du fichier local
-              with open("fichier.txt", "rb") as content_file:
+              with open("test.txt", "rb") as content_file:
                   file_content = content_file.read()
               
               # Upload du fichier
-              target_file = ctx.web.get_folder_by_server_relative_url(target_folder).upload_file("fichier.txt", file_content).execute_query()
+              target_file = ctx.web.get_folder_by_server_relative_url(target_folder).upload_file("test.txt", file_content).execute_query()
               print(f"File has been uploaded to {target_file.serverRelativeUrl}")
           except Exception as e:
               print(f"Error occurred: {str(e)}")
@@ -103,4 +102,6 @@ jobs:
       - name: Upload to SharePoint
         env:
           SHAREPOINT_SITE_URL: ${{ secrets.SHAREPOINT_SITE_URL }}
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
         run: python upload.py
