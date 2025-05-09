@@ -17,12 +17,13 @@ on:
     # Run at 04:00 UTC every day
     - cron: "0 4 * * *"
 
+permissions:
+  id-token: write
+  contents: read
+
 jobs:
   push-sharepoint:
     runs-on: ubuntu-latest
-    permissions:
-      id-token: write
-      contents: read
     steps:
       - uses: actions/checkout@v3
 
@@ -64,26 +65,25 @@ jobs:
           date >> fichier.txt
           echo "Fin de fichier temoins" >> fichier.txt
 
-      - name: Upload to SharePoint
-        env:
-          SHAREPOINT_SITE_URL: ${{ secrets.SHAREPOINT_SITE_URL }}
-          SHAREPOINT_USERNAME: ${{ secrets.SHAREPOINT_USERNAME }}
-          SHAREPOINT_PASSWORD: ${{ secrets.SHAREPOINT_PASSWORD }}
+      - name: Azure Login
+        uses: azure/login@v1
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+
+      - name: Create upload script
         run: |
-          python -c '
+          cat > upload.py << 'EOL'
           import os
-          from office365.runtime.auth.user_credential import UserCredential
+          from office365.runtime.auth.client_credential import ClientCredential
           from office365.sharepoint.client_context import ClientContext
           
           # Récupération des variables d'environnement
           site_url = os.environ["SHAREPOINT_SITE_URL"]
-          username = os.environ["SHAREPOINT_USERNAME"]
-          password = os.environ["SHAREPOINT_PASSWORD"]
           
           try:
-              # Connexion à SharePoint
-              user_credentials = UserCredential(username, password)
-              ctx = ClientContext(site_url).with_credentials(user_credentials)
+              # Utilisation du token OIDC fourni par Azure Login
+              ctx = ClientContext(site_url).with_credentials(None)
               
               # Chemin du dossier de destination
               target_folder = "Shared Documents"
@@ -98,4 +98,9 @@ jobs:
           except Exception as e:
               print(f"Error occurred: {str(e)}")
               exit(1)
-          '
+          EOL
+
+      - name: Upload to SharePoint
+        env:
+          SHAREPOINT_SITE_URL: ${{ secrets.SHAREPOINT_SITE_URL }}
+        run: python upload.py
