@@ -18,7 +18,7 @@ on:
     - cron: "0 4 * * *"
 
 jobs:
-  manage-cluster:
+  push-sharepoint:
     runs-on: ubuntu-latest
     permissions:
       id-token: write
