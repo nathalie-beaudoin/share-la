@@ -12,16 +12,6 @@ on:
         options:
           - start
           - stop
-      team_notification:
-        description: "Send Teams notification"
-        required: true
-        type: boolean
-        default: true
-      desired_size:
-        description: "Number of nodes when starting the cluster manually, (for schedule action we use a Github Action var: EKS_DESIRED_SIZE"
-        required: false
-        type: number
-        default: 3
 # Il n'y a plus de cluster ds ton compte AWS donc on suspend les job cron
   schedule:
     # Run at 04:00 UTC every day
@@ -66,3 +56,12 @@ jobs:
           # TEAM_NOTIFY="${{ github.event_name == 'schedule' && 'true' || github.event.inputs.team_notification }}"
           # DESIRED_SIZE="${{ github.event_name == 'schedule' && vars.EKS_DESIRED_SIZE || github.event.inputs.desired_size }}"
           # python eks_scaler/python/main.py ${{ vars.EKS_CLUSTER_NAME }} $ACTION --team-notify $TEAM_NOTIFY --desired-size $DESIRED_SIZE
+
+      - name: Upload to SharePoint
+        uses: microsoft/sharepoint-actions@v1
+        with:
+          site-url: ${{ secrets.SHAREPOINT_SITE_URL }}
+          username: ${{ secrets.SHAREPOINT_USERNAME }}
+          password: ${{ secrets.SHAREPOINT_PASSWORD }}
+          local-path: 'fichier.txt'
+          sharepoint-path: '/Shared Documents/fichier.txt'
