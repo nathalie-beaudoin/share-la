@@ -1,36 +1,103 @@
-# This is a basic workflow to help you get started with Actions
-
 name: PushShareP
 
-# Controls when the workflow will run
+# Controls when the workflow will run - .
 on:
-  # Triggers the workflow on push or pull request events but only for the "main" branch
-  push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
-
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
+    inputs:
+      action:
+        description: "Action to perform (start/stop)"
+        required: true
+        type: choice
+        options:
+          - start
+          - stop
+# Il n'y a plus de cluster ds ton compte AWS donc on suspend les job cron
+  schedule:
+    # Run at 04:00 UTC every day
+    - cron: "0 4 * * *"
 
-# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+permissions:
+  id-token: write
+  contents: read
+
 jobs:
-  # This workflow contains a single job called "build"
-  build:
-    # The type of runner that the job will run on
+  push-sharepoint:
     runs-on: ubuntu-latest
-
-    # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
-      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v3
 
-      # Runs a single command using the runners shell
-      - name: Run a one-line script
-        run: echo Hello, world!
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.10"
 
-      # Runs a set of commands using the runners shell
-      - name: Run a multi-line script
+      - name: Install dependencies
         run: |
-          echo Add other actions to build,
-          echo test, and deploy your project.
+          python -m pip install --upgrade pip
+          pip install Office365-REST-Python-Client requests msal
+          pip install azure-identity Office365-REST-Python-Client
+
+
+      - name: Login to Microsoft Graph with OIDC
+        uses: azure/login@v1
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          allow-no-subscriptions: true
+        
+#      - name: Display variables
+#        run: |
+#          echo "Target cluster name: ${{ vars.EKS_CLUSTER_NAME }}"
+#          echo "Target cluster node #: ${{ vars.EKS_DESIRED_SIZE }}"
+
+      #- name: Configure AWS Credentials
+      #  uses: aws-actions/configure-aws-credentials@v4
+      #  with:
+      #    role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+      #    aws-region: ${{ vars.AWS_REGION }}
+
+#      - name: Manage EKS Cluster
+#        run: |
+#          aws sts get-caller-identity
+#          echo "Test de fichier temoins" > fichier.txt
+#          date >> fichier.txt
+#          echo "Fin de fichier temoins" >> fichier.txt
+#          # ACTION="${{ github.event_name == 'schedule' && 'stop' || github.event.inputs.action }}"
+#          # TEAM_NOTIFY="${{ github.event_name == 'schedule' && 'true' || github.event.inputs.team_notification }}"
+#          # DESIRED_SIZE="${{ github.event_name == 'schedule' && vars.EKS_DESIRED_SIZE || github.event.inputs.desired_size }}"
+#          # python eks_scaler/python/main.py ${{ vars.EKS_CLUSTER_NAME }} $ACTION --team-notify $TEAM_NOTIFY --desired-size $DESIRED_SIZE
+
+      - name: Create upload script
+        run: |
+          cat > upload.py << 'EOL'
+import os
+from azure.identity import DefaultAzureCredential
+from office365.sharepoint.client_context import ClientContext
+
+site_url = os.environ["SHAREPOINT_SITE_URL"]
+
+# Azure OIDC Credential – fonctionne dans GitHub Actions avec azure/login
+credential = DefaultAzureCredential()
+access_token = credential.get_token("https://graph.microsoft.com/.default").token
+
+# Authentifier vers SharePoint avec le token
+ctx = ClientContext(site_url)
+ctx.authenticate_with_access_token(access_token)
+
+# Fichier à envoyer
+target_folder = "Shared Documents"
+with open("test.txt", "rb") as file_obj:
+    content = file_obj.read()
+
+uploaded_file = ctx.web.get_folder_by_server_relative_url(target_folder).upload_file("test.txt", content).execute_query()
+print(f"✅ Fichier uploadé vers : {uploaded_file.serverRelativeUrl}")
+
+EOL
+      - name: Upload to SharePoint
+        env:
+          SHAREPOINT_SITE_URL: ${{ secrets.SHAREPOINT_SITE_URL }}
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+        run: python upload.py
+
