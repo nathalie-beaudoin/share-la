@@ -8,8 +8,6 @@ permissions:
   contents: read
 
 env:
-  AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
-  AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
   SITE_ID: ${{ secrets.SITE_ID }}
   FILE_NAME: "demo.txt"
   LOCAL_PATH: "./demo.txt"
@@ -25,104 +23,40 @@ jobs:
       - name: Create test file
         run: echo "Hello SharePoint from GitHub Actions" > ${{ env.FILE_NAME }}
 
-      - name: Authenticate to Azure with OIDC
+      - name: Login to Azure with OIDC
+        uses: azure/login@v1
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Get Microsoft Graph access token
         id: get-token
         run: |
-          # Afficher les variables d'environnement pour le débogage (à retirer en production)
-          echo "AZURE_CLIENT_ID: ${{ env.AZURE_CLIENT_ID }}"
-          echo "AZURE_TENANT_ID: ${{ env.AZURE_TENANT_ID }}"
-          
-          # Obtenir le token JWT de GitHub
-          GITHUB_TOKEN="${{ github.token }}"
-          
-          # Afficher le token pour le débogage (à retirer en production)
-          echo "GitHub Token: $GITHUB_TOKEN"
-          
-          # Faire la requête avec plus de détails sur les erreurs
-          RESPONSE=$(curl -v -X POST \
-            -H "Content-Type: application/x-www-form-urlencoded" \
-            -d "client_id=${{ env.AZURE_CLIENT_ID }}" \
-            -d "scope=https://graph.microsoft.com/.default" \
-            -d "grant_type=client_credentials" \
-            -d "client_assertion_type=urn:ietf:params:oauth:client-assertion-type:jwt-bearer" \
-            -d "client_assertion=$GITHUB_TOKEN" \
-            -d "requested_token_use=on_behalf_of" \
-            "https://login.microsoftonline.com/${{ env.AZURE_TENANT_ID }}/oauth2/v2.0/token")
-          
-          # Afficher la réponse complète pour le débogage
-          echo "Response from Azure:"
-          echo "$RESPONSE"
-          
-          # Extraire le token avec gestion d'erreur
-          TOKEN=$(echo "$RESPONSE" | jq -r '.access_token')
-          if [ "$TOKEN" = "null" ] || [ -z "$TOKEN" ]; then
-            echo "Error: Failed to get access token"
-            echo "Error details:"
-            echo "$RESPONSE" | jq '.'
-            exit 1
-          fi
-          
+          TOKEN=$(az account get-access-token --resource=https://graph.microsoft.com --query accessToken -o tsv)
           echo "accessToken=$TOKEN" >> $GITHUB_OUTPUT
 
       - name: Upload file to SharePoint (Graph API)
-        id: upload
         run: |
-          # Vérifier que le fichier existe localement
-          echo "Checking local file..."
-          ls -l ${{ env.LOCAL_PATH }}
-          
-          # Upload avec plus de détails
           echo "Uploading file to SharePoint..."
-          RESPONSE=$(curl -v -X PUT \
+          curl -v -X PUT \
             -H "Authorization: Bearer ${{ steps.get-token.outputs.accessToken }}" \
             -H "Content-Type: text/plain" \
             --upload-file "${{ env.LOCAL_PATH }}" \
-            "https://graph.microsoft.com/v1.0/sites/${{ env.SITE_ID }}/drive/root:/${{ env.FILE_NAME }}:/content")
-          
-          echo "Upload response:"
-          echo "$RESPONSE" | jq '.'
+            "https://graph.microsoft.com/v1.0/sites/${{ env.SITE_ID }}/drive/root:/${{ env.FILE_NAME }}:/content"
 
       - name: Verify file upload
         run: |
           echo "Verifying file in SharePoint..."
-          # Vérifier si le fichier existe dans SharePoint
-          RESPONSE=$(curl -v -X GET \
-            -H "Authorization: Bearer ${{ steps.get-token.outputs.accessToken }}" \
-            -H "Content-Type: application/json" \
-            "https://graph.microsoft.com/v1.0/sites/${{ env.SITE_ID }}/drive/root:/${{ env.FILE_NAME }}")
-          
-          echo "File verification response:"
-          echo "$RESPONSE" | jq '.'
-          
-          # Lister les fichiers dans le dossier Shared Documents
-          echo "Listing files in Shared Documents:"
-          RESPONSE=$(curl -v -X GET \
-            -H "Authorization: Bearer ${{ steps.get-token.outputs.accessToken }}" \
-            -H "Content-Type: application/json" \
-            "https://graph.microsoft.com/v1.0/sites/${{ env.SITE_ID }}/drive/root:/Shared Documents:/children")
-          
-          echo "Directory listing response:"
-          echo "$RESPONSE" | jq '.'
-
-      - name: Test Graph API Permissions
-        run: |
           curl -v -X GET \
             -H "Authorization: Bearer ${{ steps.get-token.outputs.accessToken }}" \
             -H "Content-Type: application/json" \
-            "https://graph.microsoft.com/v1.0/sites/${{ env.SITE_ID }}"
+            "https://graph.microsoft.com/v1.0/sites/${{ env.SITE_ID }}/drive/root:/${{ env.FILE_NAME }}"
 
-      - name: Check Graph API Permissions
+      - name: List files in Shared Documents
         run: |
-          $token = ${{ steps.get-token.outputs.accessToken }}
-          $headers = @{
-            "Authorization" = "Bearer $token"
-            "Content-Type" = "application/json"
-          }
-          
-          # Test des permissions de base
-          $response = Invoke-RestMethod -Uri "https://graph.microsoft.com/v1.0/sites/${{ env.SITE_ID }}" -Headers $headers -Method Get
-          Write-Host "Site access successful: $($response.webUrl)"
-          
-          # Test des permissions de fichiers
-          $response = Invoke-RestMethod -Uri "https://graph.microsoft.com/v1.0/sites/${{ env.SITE_ID }}/drive/root" -Headers $headers -Method Get
-          Write-Host "Drive access successful: $($response.webUrl)"
+          echo "Listing files..."
+          curl -v -X GET \
+            -H "Authorization: Bearer ${{ steps.get-token.outputs.accessToken }}" \
+            -H "Content-Type: application/json" \
+            "https://graph.microsoft.com/v1.0/sites/${{ env.SITE_ID }}/drive/root:/Shared Documents:/children"
