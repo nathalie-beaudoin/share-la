@@ -59,4 +59,5 @@ jobs:
           curl -v -X GET \
             -H "Authorization: Bearer ${{ steps.get-token.outputs.accessToken }}" \
             -H "Content-Type: application/json" \
-            "https://graph.microsoft.com/v1.0/sites/${{ env.SITE_ID }}/drive/root:/Shared Documents:/children"
+            "https://graph.microsoft.com/v1.0/sites/${{ env.SITE_ID }}/drive/root:/Shared%20Documents:/children"
+          
