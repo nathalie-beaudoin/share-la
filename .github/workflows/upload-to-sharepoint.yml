@@ -40,7 +40,25 @@ jobs:
 
       - name: Decode access token (verify roles)
         run: |
-          echo "${{ steps.get-token.outputs.accessToken }}" | cut -d "." -f2 | base64 -d | jq
+          TOKEN="${{ steps.get-token.outputs.accessToken }}"
+          if [ -z "$TOKEN" ]; then
+            echo "Error: Access token is empty"
+            exit 1
+          fi
+          
+          # Afficher le token pour le débogage (à retirer en production)
+          echo "Token: $TOKEN"
+          
+          # Décoder le token avec gestion d'erreur
+          DECODED=$(echo "$TOKEN" | cut -d "." -f2 | base64 -d 2>/dev/null)
+          if [ $? -ne 0 ]; then
+            echo "Error: Failed to decode token"
+            exit 1
+          fi
+          
+          # Afficher le contenu décodé
+          echo "Decoded token content:"
+          echo "$DECODED" | jq '.'
 
       - name: Upload file to SharePoint (Graph API)
         run: |
