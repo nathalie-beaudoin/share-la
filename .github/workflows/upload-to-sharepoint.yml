@@ -68,9 +68,6 @@ jobs:
             exit 1
           fi
           
-          # Afficher le token pour le débogage (à retirer en production)
-          echo "Token: $TOKEN"
-          
           # Décoder le token avec gestion d'erreur
           DECODED=$(echo "$TOKEN" | cut -d "." -f2 | base64 -d 2>/dev/null)
           if [ $? -ne 0 ]; then
@@ -78,9 +75,11 @@ jobs:
             exit 1
           fi
           
-          # Afficher le contenu décodé
-          echo "Decoded token content:"
-          echo "$DECODED" | jq '.'
+          # Afficher les rôles et permissions
+          echo "Token roles and permissions:"
+          echo "$DECODED" | jq '.roles'
+          echo "$DECODED" | jq '.scp'
+          echo "$DECODED" | jq '.wids'
 
       - name: Upload file to SharePoint (Graph API)
         run: |
@@ -96,3 +95,26 @@ jobs:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           enable-AzPSSession: true
+
+      - name: Test Graph API Permissions
+        run: |
+          curl -v -X GET \
+            -H "Authorization: Bearer ${{ steps.get-token.outputs.accessToken }}" \
+            -H "Content-Type: application/json" \
+            "https://graph.microsoft.com/v1.0/sites/${{ env.SITE_ID }}"
+
+      - name: Check Graph API Permissions
+        run: |
+          $token = ${{ steps.get-token.outputs.accessToken }}
+          $headers = @{
+            "Authorization" = "Bearer $token"
+            "Content-Type" = "application/json"
+          }
+          
+          # Test des permissions de base
+          $response = Invoke-RestMethod -Uri "https://graph.microsoft.com/v1.0/sites/${{ env.SITE_ID }}" -Headers $headers -Method Get
+          Write-Host "Site access successful: $($response.webUrl)"
+          
+          # Test des permissions de fichiers
+          $response = Invoke-RestMethod -Uri "https://graph.microsoft.com/v1.0/sites/${{ env.SITE_ID }}/drive/root" -Headers $headers -Method Get
+          Write-Host "Drive access successful: $($response.webUrl)"
