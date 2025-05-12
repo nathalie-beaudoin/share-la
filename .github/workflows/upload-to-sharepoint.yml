@@ -1,0 +1,46 @@
+name: Upload to SharePoint via OIDC
+
+on:
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AZURE_CLIENT_ID: "<TON_CLIENT_ID>"
+  AZURE_TENANT_ID: "<TON_TENANT_ID>"
+  SITE_ID: "<TON_SITE_ID>"
+  FILE_NAME: "demo.txt"
+  LOCAL_PATH: "./demo.txt"
+
+jobs:
+  upload:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Create test file
+        run: echo "Hello SharePoint from GitHub Actions" > ${{ env.FILE_NAME }}
+
+      - name: Authenticate to Azure with OIDC
+        id: login
+        uses: azure/login@v1
+        with:
+          client-id: ${{ env.AZURE_CLIENT_ID }}
+          tenant-id: ${{ env.AZURE_TENANT_ID }}
+          allow-no-subscriptions: true
+
+      - name: Decode access token (verify roles)
+        run: |
+          echo "${{ steps.login.outputs.accessToken }}" | cut -d "." -f2 | base64 -d | jq
+
+      - name: Upload file to SharePoint (Graph API)
+        run: |
+          curl -X PUT \
+            -H "Authorization: Bearer ${{ steps.login.outputs.accessToken }}" \
+            -H "Content-Type: text/plain" \
+            --upload-file "${{ env.LOCAL_PATH }}" \
+            "https://graph.microsoft.com/v1.0/sites/${{ env.SITE_ID }}/drive/root:/Shared Documents/${{ env.FILE_NAME }}:/content"

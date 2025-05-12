@@ -1,4 +1,4 @@
-name: gitsharep
+name: Git Share Point Upload
 
 # Controls when the workflow will run - .
 on:
