@@ -31,6 +31,7 @@ jobs:
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
           enable-AzPSSession: true
 
       - name: Authenticate to Azure with OIDC
@@ -51,8 +52,18 @@ jobs:
             -d "grant_type=client_credentials" \
             -d "client_assertion_type=urn:ietf:params:oauth:client-assertion-type:jwt-bearer" \
             -d "client_assertion=$GITHUB_TOKEN" \
-            -d "requested_token_use=on_behalf_of" \
             "https://login.microsoftonline.com/${{ env.AZURE_TENANT_ID }}/oauth2/v2.0/token")
+          
+          # Extraire le token avec gestion d'erreur
+          TOKEN=$(echo "$RESPONSE" | jq -r '.access_token')
+          if [ "$TOKEN" = "null" ] || [ -z "$TOKEN" ]; then
+            echo "Error: Failed to get access token"
+            echo "Error details:"
+            echo "$RESPONSE" | jq '.'
+            exit 1
+          fi
+          
+          echo "accessToken=$TOKEN" >> $GITHUB_OUTPUT
 
       - name: Upload file to SharePoint (Graph API)
         id: upload
@@ -79,7 +90,7 @@ jobs:
           RESPONSE=$(curl -v -X GET \
             -H "Authorization: Bearer ${{ steps.get-token.outputs.accessToken }}" \
             -H "Content-Type: application/json" \
-            "https://graph.microsoft.com/v1.0/sites/${{ env.SITE_ID }}/drive/root:/Shared Documents/${{ env.FILE_NAME }}")
+            "https://graph.microsoft.com/v1.0/sites/${{ env.SITE_ID }}/drive/root:/${{ env.FILE_NAME }}")
           
           echo "File verification response:"
           echo "$RESPONSE" | jq '.'
