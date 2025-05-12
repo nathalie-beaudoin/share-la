@@ -28,14 +28,33 @@ jobs:
       - name: Authenticate to Azure with OIDC
         id: get-token
         run: |
-          TOKEN=$(curl -s -X POST \
+          # Afficher les variables d'environnement pour le débogage (à retirer en production)
+          echo "AZURE_CLIENT_ID: ${{ env.AZURE_CLIENT_ID }}"
+          echo "AZURE_TENANT_ID: ${{ env.AZURE_TENANT_ID }}"
+          
+          # Faire la requête avec plus de détails sur les erreurs
+          RESPONSE=$(curl -v -X POST \
             -H "Content-Type: application/x-www-form-urlencoded" \
             -d "client_id=${{ env.AZURE_CLIENT_ID }}" \
             -d "scope=https://graph.microsoft.com/.default" \
             -d "grant_type=client_credentials" \
             -d "client_assertion_type=urn:ietf:params:oauth:client-assertion-type:jwt-bearer" \
             -d "client_assertion=${{ github.token }}" \
-            "https://login.microsoftonline.com/${{ env.AZURE_TENANT_ID }}/oauth2/v2.0/token" | jq -r '.access_token')
+            "https://login.microsoftonline.com/${{ env.AZURE_TENANT_ID }}/oauth2/v2.0/token")
+          
+          # Afficher la réponse complète pour le débogage
+          echo "Response from Azure:"
+          echo "$RESPONSE"
+          
+          # Extraire le token avec gestion d'erreur
+          TOKEN=$(echo "$RESPONSE" | jq -r '.access_token')
+          if [ "$TOKEN" = "null" ] || [ -z "$TOKEN" ]; then
+            echo "Error: Failed to get access token"
+            echo "Error details:"
+            echo "$RESPONSE" | jq '.'
+            exit 1
+          fi
+          
           echo "accessToken=$TOKEN" >> $GITHUB_OUTPUT
 
       - name: Decode access token (verify roles)
