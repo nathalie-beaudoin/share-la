@@ -25,6 +25,14 @@ jobs:
       - name: Create test file
         run: echo "Hello SharePoint from GitHub Actions" > ${{ env.FILE_NAME }}
 
+      - name: Azure Login
+        id: azure-login
+        uses: azure/login@v1
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          enable-AzPSSession: true
+
       - name: Authenticate to Azure with OIDC
         id: get-token
         run: |
@@ -43,43 +51,8 @@ jobs:
             -d "grant_type=client_credentials" \
             -d "client_assertion_type=urn:ietf:params:oauth:client-assertion-type:jwt-bearer" \
             -d "client_assertion=$GITHUB_TOKEN" \
+            -d "requested_token_use=on_behalf_of" \
             "https://login.microsoftonline.com/${{ env.AZURE_TENANT_ID }}/oauth2/v2.0/token")
-          
-          # Afficher la réponse complète pour le débogage
-          echo "Response from Azure:"
-          echo "$RESPONSE"
-          
-          # Extraire le token avec gestion d'erreur
-          TOKEN=$(echo "$RESPONSE" | jq -r '.access_token')
-          if [ "$TOKEN" = "null" ] || [ -z "$TOKEN" ]; then
-            echo "Error: Failed to get access token"
-            echo "Error details:"
-            echo "$RESPONSE" | jq '.'
-            exit 1
-          fi
-          
-          echo "accessToken=$TOKEN" >> $GITHUB_OUTPUT
-
-      - name: Decode access token (verify roles)
-        run: |
-          TOKEN="${{ steps.get-token.outputs.accessToken }}"
-          if [ -z "$TOKEN" ]; then
-            echo "Error: Access token is empty"
-            exit 1
-          fi
-          
-          # Décoder le token avec gestion d'erreur
-          DECODED=$(echo "$TOKEN" | cut -d "." -f2 | base64 -d 2>/dev/null)
-          if [ $? -ne 0 ]; then
-            echo "Error: Failed to decode token"
-            exit 1
-          fi
-          
-          # Afficher les rôles et permissions
-          echo "Token roles and permissions:"
-          echo "$DECODED" | jq '.roles'
-          echo "$DECODED" | jq '.scp'
-          echo "$DECODED" | jq '.wids'
 
       - name: Upload file to SharePoint (Graph API)
         id: upload
@@ -94,7 +67,7 @@ jobs:
             -H "Authorization: Bearer ${{ steps.get-token.outputs.accessToken }}" \
             -H "Content-Type: text/plain" \
             --upload-file "${{ env.LOCAL_PATH }}" \
-            "https://graph.microsoft.com/v1.0/sites/${{ env.SITE_ID }}/drive/root:/Shared Documents/${{ env.FILE_NAME }}:/content")
+            "https://graph.microsoft.com/v1.0/sites/${{ env.SITE_ID }}/drive/root:/${{ env.FILE_NAME }}:/content")
           
           echo "Upload response:"
           echo "$RESPONSE" | jq '.'
@@ -120,13 +93,6 @@ jobs:
           
           echo "Directory listing response:"
           echo "$RESPONSE" | jq '.'
-
-      - name: Azure Login
-        uses: azure/login@v1
-        with:
-          client-id: ${{ secrets.AZURE_CLIENT_ID }}
-          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-          enable-AzPSSession: true
 
       - name: Test Graph API Permissions
         run: |
