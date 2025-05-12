@@ -8,9 +8,9 @@ permissions:
   contents: read
 
 env:
-  AZURE_CLIENT_ID: "<TON_CLIENT_ID>"
-  AZURE_TENANT_ID: "<TON_TENANT_ID>"
-  SITE_ID: "<TON_SITE_ID>"
+  AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+  AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+  SITE_ID: ${{ secrets.SITE_ID }}
   FILE_NAME: "demo.txt"
   LOCAL_PATH: "./demo.txt"
 
