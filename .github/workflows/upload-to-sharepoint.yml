@@ -35,6 +35,9 @@ jobs:
           # Obtenir le token JWT de GitHub
           GITHUB_TOKEN="${{ github.token }}"
           
+          # Afficher le token pour le débogage (à retirer en production)
+          echo "GitHub Token: $GITHUB_TOKEN"
+          
           # Faire la requête avec plus de détails sur les erreurs
           RESPONSE=$(curl -v -X POST \
             -H "Content-Type: application/x-www-form-urlencoded" \
@@ -43,7 +46,12 @@ jobs:
             -d "grant_type=client_credentials" \
             -d "client_assertion_type=urn:ietf:params:oauth:client-assertion-type:jwt-bearer" \
             -d "client_assertion=$GITHUB_TOKEN" \
+            -d "requested_token_use=on_behalf_of" \
             "https://login.microsoftonline.com/${{ env.AZURE_TENANT_ID }}/oauth2/v2.0/token")
+          
+          # Afficher la réponse complète pour le débogage
+          echo "Response from Azure:"
+          echo "$RESPONSE"
           
           # Extraire le token avec gestion d'erreur
           TOKEN=$(echo "$RESPONSE" | jq -r '.access_token')
