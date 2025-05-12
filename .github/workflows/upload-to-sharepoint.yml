@@ -31,7 +31,7 @@ jobs:
         with:
           client-id: ${{ env.AZURE_CLIENT_ID }}
           tenant-id: ${{ env.AZURE_TENANT_ID }}
-          auth-type: oidc
+          auth-type: IDENTITY
           allow-no-subscriptions: true
 
       - name: Decode access token (verify roles)
