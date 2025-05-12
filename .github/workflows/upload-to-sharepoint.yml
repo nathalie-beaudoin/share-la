@@ -82,12 +82,44 @@ jobs:
           echo "$DECODED" | jq '.wids'
 
       - name: Upload file to SharePoint (Graph API)
+        id: upload
         run: |
-          curl -X PUT \
+          # Vérifier que le fichier existe localement
+          echo "Checking local file..."
+          ls -l ${{ env.LOCAL_PATH }}
+          
+          # Upload avec plus de détails
+          echo "Uploading file to SharePoint..."
+          RESPONSE=$(curl -v -X PUT \
             -H "Authorization: Bearer ${{ steps.get-token.outputs.accessToken }}" \
             -H "Content-Type: text/plain" \
             --upload-file "${{ env.LOCAL_PATH }}" \
-            "https://graph.microsoft.com/v1.0/sites/${{ env.SITE_ID }}/drive/root:/Shared Documents/${{ env.FILE_NAME }}:/content"
+            "https://graph.microsoft.com/v1.0/sites/${{ env.SITE_ID }}/drive/root:/Shared Documents/${{ env.FILE_NAME }}:/content")
+          
+          echo "Upload response:"
+          echo "$RESPONSE" | jq '.'
+
+      - name: Verify file upload
+        run: |
+          echo "Verifying file in SharePoint..."
+          # Vérifier si le fichier existe dans SharePoint
+          RESPONSE=$(curl -v -X GET \
+            -H "Authorization: Bearer ${{ steps.get-token.outputs.accessToken }}" \
+            -H "Content-Type: application/json" \
+            "https://graph.microsoft.com/v1.0/sites/${{ env.SITE_ID }}/drive/root:/Shared Documents/${{ env.FILE_NAME }}")
+          
+          echo "File verification response:"
+          echo "$RESPONSE" | jq '.'
+          
+          # Lister les fichiers dans le dossier Shared Documents
+          echo "Listing files in Shared Documents:"
+          RESPONSE=$(curl -v -X GET \
+            -H "Authorization: Bearer ${{ steps.get-token.outputs.accessToken }}" \
+            -H "Content-Type: application/json" \
+            "https://graph.microsoft.com/v1.0/sites/${{ env.SITE_ID }}/drive/root:/Shared Documents:/children")
+          
+          echo "Directory listing response:"
+          echo "$RESPONSE" | jq '.'
 
       - name: Azure Login
         uses: azure/login@v1
