@@ -25,15 +25,6 @@ jobs:
       - name: Create test file
         run: echo "Hello SharePoint from GitHub Actions" > ${{ env.FILE_NAME }}
 
-      - name: Azure Login
-        id: azure-login
-        uses: azure/login@v1
-        with:
-          client-id: ${{ secrets.AZURE_CLIENT_ID }}
-          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-          enable-AzPSSession: true
-
       - name: Authenticate to Azure with OIDC
         id: get-token
         run: |
