@@ -45,19 +45,19 @@ jobs:
             --upload-file "${{ env.LOCAL_PATH }}" \
             "https://graph.microsoft.com/v1.0/sites/${{ env.SITE_ID }}/drive/root:/${{ env.FILE_NAME }}:/content"
 
-      - name: Verify file upload
-        run: |
-          echo "Verifying file in SharePoint..."
-          curl -v -X GET \
-            -H "Authorization: Bearer ${{ steps.get-token.outputs.accessToken }}" \
-            -H "Content-Type: application/json" \
-            "https://graph.microsoft.com/v1.0/sites/${{ env.SITE_ID }}/drive/root:/${{ env.FILE_NAME }}"
+#      - name: Verify file upload
+#        run: |
+#          echo "Verifying file in SharePoint..."
+#          curl -v -X GET \
+#            -H "Authorization: Bearer ${{ steps.get-token.outputs.accessToken }}" \
+#            -H "Content-Type: application/json" \
+#            "https://graph.microsoft.com/v1.0/sites/${{ env.SITE_ID }}/drive/root:/${{ env.FILE_NAME }}"
 
-      - name: List files in Shared Documents
-        run: |
-          echo "Listing files..."
-          curl -v -X GET \
-            -H "Authorization: Bearer ${{ steps.get-token.outputs.accessToken }}" \
-            -H "Content-Type: application/json" \
-            "https://graph.microsoft.com/v1.0/sites/${{ env.SITE_ID }}/drive/root:/Shared%20Documents:/children"
+#      - name: List files in Shared Documents
+#        run: |
+#          echo "Listing files..."
+#          curl -v -X GET \
+#            -H "Authorization: Bearer ${{ steps.get-token.outputs.accessToken }}" \
+#            -H "Content-Type: application/json" \
+#            "https://graph.microsoft.com/v1.0/sites/${{ env.SITE_ID }}/drive/root:/Shared%20Documents:/children"
           
