@@ -84,7 +84,7 @@ jobs:
             --upload-file \"${{ env.LOCAL_PATH }}\" \
             \"https://graph.microsoft.com/v1.0/sites/${{ env.SITE_ID }}/drive/root:/upload/${{ env.FILE_NAME }}:/content\""
 
-      - name: Upload file to SharePoint (Graph API)
+      - name: Upload file to SharePoint-Allowed (Graph API) - allowed folder
         id: upload
         run: |
           echo "Uploading file to SharePoint..."
@@ -96,6 +96,25 @@ jobs:
           echo "Response: $RESPONSE"
           echo "response=$RESPONSE" >> $GITHUB_OUTPUT
           
+          # Check if the response contains an error
+          if echo "$RESPONSE" | grep -q '"error"'; then
+            echo "Error detected in response"
+            echo "$RESPONSE" | grep -o '"message":"[^"]*"' | cut -d'"' -f4
+            exit 1
+          fi
+
+      - name: Upload file to SharePoint-Denied (Graph API) - denied folder
+        id: upload
+        run: |
+          echo "Uploading file to SharePoint root..."
+          RESPONSE=$(curl -v -X PUT \
+            -H "Authorization: Bearer ${{ steps.get-token.outputs.accessToken }}" \
+            -H "Content-Type: text/plain" \
+            --upload-file "${{ env.LOCAL_PATH }}" \
+            "https://graph.microsoft.com/v1.0/sites/${{ env.SITE_ID }}/drive/root:/${{ env.FILE_NAME }}:/content" 2>&1)
+          echo "Response: $RESPONSE"
+          echo "response=$RESPONSE" >> $GITHUB_OUTPUT
+            
           # Check if the response contains an error
           if echo "$RESPONSE" | grep -q '"error"'; then
             echo "Error detected in response"
