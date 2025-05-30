@@ -88,13 +88,16 @@ jobs:
         id: upload
         run: |
           echo "Uploading file to SharePoint..."
-          RESPONSE=$(curl -v -X PUT \
+          RESPONSE=$(curl -s -X PUT \
             -H "Authorization: Bearer ${{ steps.get-token.outputs.accessToken }}" \
             -H "Content-Type: text/plain" \
             --upload-file "${{ env.LOCAL_PATH }}" \
-            "https://graph.microsoft.com/v1.0/sites/${{ env.SITE_ID }}/drive/root:/upload/${{ env.FILE_NAME }}:/content" 2>&1)
+            "https://graph.microsoft.com/v1.0/sites/${{ env.SITE_ID }}/drive/root:/upload/${{ env.FILE_NAME }}:/content")
+          
           echo "Response: $RESPONSE"
-          echo "response=$RESPONSE" >> $GITHUB_OUTPUT
+          echo "response<<EOF" >> $GITHUB_OUTPUT
+          echo "$RESPONSE" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
           
           # Check if the response contains an error
           if echo "$RESPONSE" | grep -q '"error"'; then
