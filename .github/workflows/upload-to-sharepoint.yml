@@ -104,7 +104,7 @@ jobs:
           fi
 
       - name: Upload file to SharePoint-Denied (Graph API) - denied folder
-        id: upload
+        id: upload_denied
         run: |
           echo "Uploading file to SharePoint root..."
           RESPONSE=$(curl -v -X PUT \
