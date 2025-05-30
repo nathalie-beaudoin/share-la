@@ -128,12 +128,28 @@ jobs:
             exit 1
           fi
 
+      - name: Verify file not in root after Denied
+        run: |
+          echo "Verifying file is not in root folder after Denied operation..."
+          RESPONSE=$(curl -s -X GET \
+            -H "Authorization: Bearer ${{ steps.get-token.outputs.accessToken }}" \
+            -H "Content-Type: application/json" \
+            "https://graph.microsoft.com/v1.0/sites/${{ env.SITE_ID }}/drive/root:/${{ env.FILE_NAME }}")
+          
+          if echo "$RESPONSE" | jq -e '.error' > /dev/null; then
+            echo "✅ File is not in root folder (as expected)"
+          else
+            echo "❌ File was found in root folder when it shouldn't be"
+            echo "$RESPONSE" | jq '.'
+            exit 1
+          fi
+
       - name: Debug - Show response
         if: always()
         run: |
           echo "Last command exit code: $?"
           echo "Upload response:"
-          echo "${{ steps.upload.outputs.response }}"
+          echo '${{ steps.upload.outputs.response }}' | jq '.'
 
       - name: Verify file upload
         run: |
