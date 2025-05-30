@@ -41,6 +41,12 @@ jobs:
           TOKEN=$(az account get-access-token --resource=https://graph.microsoft.com --query accessToken -o tsv)
           echo "accessToken=$TOKEN" >> $GITHUB_OUTPUT
 
+      - name: Debug Access Token (App ID utilisée)
+        run: |
+          echo "${{ steps.get-token.outputs.accessToken }}" | cut -d '.' -f2 | base64 -d | jq
+        
+
+
       - name: Upload file to SharePoint (Graph API)
         run: |
           echo "Uploading file to SharePoint..."
