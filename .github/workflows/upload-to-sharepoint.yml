@@ -58,6 +58,8 @@ jobs:
           echo "$TOKEN" | cut -d '.' -f2 | base64 -d | jq -r '.roles[]' 2>/dev/null || echo "No roles found"
           echo "Token scopes:"
           echo "$TOKEN" | cut -d '.' -f2 | base64 -d | jq -r '.scp' 2>/dev/null || echo "No scopes found"
+          echo "Token audience:"
+          echo "$TOKEN" | cut -d '.' -f2 | base64 -d | jq -r '.aud' 2>/dev/null || echo "No audience found"
 
       - name: Debug - Show curl command
         run: |
@@ -79,6 +81,13 @@ jobs:
             "https://graph.microsoft.com/v1.0/sites/${{ env.SITE_ID }}/drive/root:/upload/${{ env.FILE_NAME }}:/content" 2>&1)
           echo "Response: $RESPONSE"
           echo "response=$RESPONSE" >> $GITHUB_OUTPUT
+          
+          # Check if the response contains an error
+          if echo "$RESPONSE" | grep -q '"error"'; then
+            echo "Error detected in response"
+            echo "$RESPONSE" | grep -o '"message":"[^"]*"' | cut -d'"' -f4
+            exit 1
+          fi
 
       - name: Debug - Show response
         if: always()
