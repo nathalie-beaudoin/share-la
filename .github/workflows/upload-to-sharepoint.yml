@@ -61,6 +61,20 @@ jobs:
           echo "Token audience:"
           echo "$TOKEN" | cut -d '.' -f2 | base64 -d | jq -r '.aud' 2>/dev/null || echo "No audience found"
 
+      - name: Verify SharePoint Access
+        run: |
+          echo "Verifying SharePoint access..."
+          RESPONSE=$(curl -v -X GET \
+            -H "Authorization: Bearer ${{ steps.get-token.outputs.accessToken }}" \
+            -H "Content-Type: application/json" \
+            "https://graph.microsoft.com/v1.0/sites/${{ env.SITE_ID }}" 2>&1)
+          echo "Response: $RESPONSE"
+          if echo "$RESPONSE" | grep -q '"error"'; then
+            echo "Error accessing SharePoint site:"
+            echo "$RESPONSE" | grep -o '"message":"[^"]*"' | cut -d'"' -f4
+            exit 1
+          fi
+
       - name: Debug - Show curl command
         run: |
           echo "Curl command that will be executed:"
