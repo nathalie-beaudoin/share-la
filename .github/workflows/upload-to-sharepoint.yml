@@ -23,6 +23,16 @@ jobs:
       - name: Create test file
         run: echo "Hello SharePoint from GitHub Actions" > ${{ env.FILE_NAME }}
 
+      - name: Debug - Show environment
+        run: |
+          echo "Current directory: $(pwd)"
+          echo "Files in directory:"
+          ls -la
+          echo "GitHub workspace: $GITHUB_WORKSPACE"
+          echo "Files in workspace:"
+          ls -la $GITHUB_WORKSPACE
+          echo "SITE_ID: ${{ env.SITE_ID }}"
+
       - name: Login to Azure with OIDC
         uses: azure/login@v1
         with:
@@ -40,35 +50,57 @@ jobs:
         run: |
           TOKEN=$(az account get-access-token --resource=https://graph.microsoft.com --query accessToken -o tsv)
           echo "accessToken=$TOKEN" >> $GITHUB_OUTPUT
+          echo "Token length: ${#TOKEN}"
+          echo "Token first 10 chars: ${TOKEN:0:10}..."
 
       - name: Debug Access Token (App ID utilisée)
         run: |
+          echo "Decoding JWT token..."
           echo "${{ steps.get-token.outputs.accessToken }}" | cut -d '.' -f2 | base64 -d | jq
-        
+          echo "Token claims:"
+          echo "${{ steps.get-token.outputs.accessToken }}" | cut -d '.' -f2 | base64 -d | jq '.roles, .scp, .appid'
 
+      - name: Debug - Show curl command
+        run: |
+          echo "Curl command that will be executed:"
+          echo "curl -v -X PUT \
+            -H \"Authorization: Bearer ***\" \
+            -H \"Content-Type: text/plain\" \
+            --upload-file \"${{ env.LOCAL_PATH }}\" \
+            \"https://graph.microsoft.com/v1.0/sites/${{ env.SITE_ID }}/drive/root:/upload/${{ env.FILE_NAME }}:/content\""
 
       - name: Upload file to SharePoint (Graph API)
+        id: upload
         run: |
           echo "Uploading file to SharePoint..."
-          curl -v -X PUT \
+          RESPONSE=$(curl -v -X PUT \
             -H "Authorization: Bearer ${{ steps.get-token.outputs.accessToken }}" \
             -H "Content-Type: text/plain" \
             --upload-file "${{ env.LOCAL_PATH }}" \
-            "https://graph.microsoft.com/v1.0/sites/${{ env.SITE_ID }}/drive/root:/upload/${{ env.FILE_NAME }}:/content"
+            "https://graph.microsoft.com/v1.0/sites/${{ env.SITE_ID }}/drive/root:/upload/${{ env.FILE_NAME }}:/content" 2>&1)
+          echo "Response: $RESPONSE"
+          echo "response=$RESPONSE" >> $GITHUB_OUTPUT
 
-#      - name: Verify file upload
-#        run: |
-#          echo "Verifying file in SharePoint..."
-#          curl -v -X GET \
-#            -H "Authorization: Bearer ${{ steps.get-token.outputs.accessToken }}" \
-#            -H "Content-Type: application/json" \
-#            "https://graph.microsoft.com/v1.0/sites/${{ env.SITE_ID }}/drive/root:/upload/${{ env.FILE_NAME }}"
+      - name: Debug - Show response
+        if: always()
+        run: |
+          echo "Last command exit code: $?"
+          echo "Upload response:"
+          echo "${{ steps.upload.outputs.response }}"
 
-#      - name: List files in Shared Documents
-#        run: |
-#          echo "Listing files..."
-#          curl -v -X GET \
-#            -H "Authorization: Bearer ${{ steps.get-token.outputs.accessToken }}" \
-#            -H "Content-Type: application/json" \
-#            "https://graph.microsoft.com/v1.0/sites/${{ env.SITE_ID }}/drive/root:/upload:/children"
+      - name: Verify file upload
+        run: |
+          echo "Verifying file in SharePoint..."
+          curl -v -X GET \
+            -H "Authorization: Bearer ${{ steps.get-token.outputs.accessToken }}" \
+            -H "Content-Type: application/json" \
+            "https://graph.microsoft.com/v1.0/sites/${{ env.SITE_ID }}/drive/root:/upload/${{ env.FILE_NAME }}"
+
+      - name: List files in Shared Documents
+        run: |
+          echo "Listing files..."
+          curl -v -X GET \
+            -H "Authorization: Bearer ${{ steps.get-token.outputs.accessToken }}" \
+            -H "Content-Type: application/json" \
+            "https://graph.microsoft.com/v1.0/sites/${{ env.SITE_ID }}/drive/root:/upload:/children"
           
