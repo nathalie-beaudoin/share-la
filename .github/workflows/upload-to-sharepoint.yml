@@ -54,7 +54,7 @@ jobs:
             -H "Authorization: Bearer ${{ steps.get-token.outputs.accessToken }}" \
             -H "Content-Type: text/plain" \
             --upload-file "${{ env.LOCAL_PATH }}" \
-            "https://graph.microsoft.com/v1.0/sites/${{ env.SITE_ID }}/drive/root:/${{ env.FILE_NAME }}:/content"
+            "https://graph.microsoft.com/v1.0/sites/${{ env.SITE_ID }}/drive/root:/upload/${{ env.FILE_NAME }}:/content"
 
 #      - name: Verify file upload
 #        run: |
@@ -62,7 +62,7 @@ jobs:
 #          curl -v -X GET \
 #            -H "Authorization: Bearer ${{ steps.get-token.outputs.accessToken }}" \
 #            -H "Content-Type: application/json" \
-#            "https://graph.microsoft.com/v1.0/sites/${{ env.SITE_ID }}/drive/root:/${{ env.FILE_NAME }}"
+#            "https://graph.microsoft.com/v1.0/sites/${{ env.SITE_ID }}/drive/root:/upload/${{ env.FILE_NAME }}"
 
 #      - name: List files in Shared Documents
 #        run: |
@@ -70,5 +70,5 @@ jobs:
 #          curl -v -X GET \
 #            -H "Authorization: Bearer ${{ steps.get-token.outputs.accessToken }}" \
 #            -H "Content-Type: application/json" \
-#            "https://graph.microsoft.com/v1.0/sites/${{ env.SITE_ID }}/drive/root:/Shared%20Documents:/children"
+#            "https://graph.microsoft.com/v1.0/sites/${{ env.SITE_ID }}/drive/root:/upload:/children"
           
